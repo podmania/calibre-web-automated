@@ -1,11 +1,23 @@
 {
-  description = "Calibre-Web-Automated distroless image";
+  description = "Calibre-Web-Automated distroless image (pip-based)";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   outputs = { self, nixpkgs }: let
     system = builtins.currentSystem;
     pkgs = nixpkgs.legacyPackages.${system};
+
+    # ---- CI updates these lines ----
+    cwaRev = "v4.0.6";
+    cwaSha256 = "0y3a7w0lcqlslc4l2ygnbkn9c4gva4fbkmmqg1rdigwjr33c86z0";
+    # --------------------------------
+
+    src = pkgs.fetchFromGitHub {
+      owner = "crocodilestick";
+      repo = "Calibre-Web-Automated";
+      rev = cwaRev;
+      sha256 = cwaSha256;
+    };
   in {
     packages.${system}.calibre-web-automated = pkgs.dockerTools.buildLayeredImage {
       name = "calibre-web-automated";
@@ -14,12 +26,7 @@
         (pkgs.stdenv.mkDerivation {
           name = "cwa-pip-env";
           __noChroot = true;
-          src = pkgs.fetchFromGitHub {
-            owner = "crocodilestick";
-            repo = "Calibre-Web-Automated";
-            rev = "v4.0.6";
-            sha256 = "0y3a7w0lcqlslc4l2ygnbkn9c4gva4fbkmmqg1rdigwjr33c86z0";
-          };
+          inherit src;
           nativeBuildInputs = with pkgs; [
             python3
             cacert
@@ -40,7 +47,7 @@
             from setuptools import setup
             setup(
                 name="calibre-web-automated",
-                version="${builtins.substring 1 (builtins.stringLength src.rev) src.rev}",
+                version="${builtins.substring 1 (builtins.stringLength cwaRev) cwaRev}",
                 packages=["cps"],
                 package_dir={"cps": "cps"},
                 include_package_data=True,
@@ -88,6 +95,6 @@
         WorkingDir = "/config";
       };
     };
-    calibreWebAutomatedVersion = "v4.0.6";
+    calibreWebAutomatedVersion = cwaRev;
   };
 }
