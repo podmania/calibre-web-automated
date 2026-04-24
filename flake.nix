@@ -19,7 +19,6 @@
       contents = [
         (pkgs.stdenv.mkDerivation {
           name = "cwa-pip-env";
-          __noChroot = true;
           src = pkgs.fetchFromGitHub {
             owner = "crocodilestick";
             repo = "Calibre-Web-Automated";
