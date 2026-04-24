@@ -1,5 +1,5 @@
 {
-  description = "Calibre-Web-Automated image";
+  description = "Calibre-Web-Automated distroless image (uv2nix)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -26,10 +26,10 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        # ---- CI updates these lines ----
+        # ---- CI updates ----
         cwaRev = "v4.0.6";
         cwaSha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-        # --------------------------------
+        # -------------------
 
         src = pkgs.fetchFromGitHub {
           owner = "crocodilestick";
@@ -38,34 +38,31 @@
           sha256 = cwaSha256;
         };
 
-        # Patch pyproject.toml: add 'calibreweb' to build-system.requires
-        patchedSrc = pkgs.runCommand "cwa-patched-src" { } ''
+        # Patch pyproject.toml and add dummy calibreweb module
+        patchedSrc = pkgs.runCommand "cwa-patched-src" { buildInputs = [ pkgs.python3 ]; } ''
           cp -r ${src} $out
           chmod -R +w $out
-          # Add "calibreweb" to the list of build-system requires
-          # The file has a line: 'requires = ["setuptools>=69.0", ...]'
-          # We insert a new line after that opening bracket.
+          # 1. Add calibreweb to build-system.requires
           sed -i '/requires = \[/a\    "calibreweb",' $out/pyproject.toml
+          # 2. Explicitly set packages to ['cps'] to avoid flat-layout error
+          sed -i '/dynamic = \["version"\]/a packages = ["cps"]' $out/pyproject.toml
+          # 3. Create dummy calibreweb module with __version__
+          mkdir -p $out/calibreweb
+          echo '__version__ = "${builtins.substring 1 (builtins.stringLength cwaRev) cwaRev}"' > $out/calibreweb/__init__.py
         '';
 
-        # Python interpreter
         python = pkgs.python312;
 
-        # Load workspace from patched source (nb: uv.lock must also be present)
         workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = patchedSrc; };
 
-        # Generate Nix overlay from uv.lock
         uvLockedOverlay = workspace.mkPyprojectOverlay { sourcePreference = "wheel"; };
 
-        # Build the final Python package set
         pythonSet = (pkgs.callPackage pyproject-nix.build.packages {
           inherit python;
           overrides = [ uvLockedOverlay ];
         });
 
-        # The Calibre-Web-Automated package
         cwa = pythonSet.calibre-web-automated;
-
         cwaVersion = cwa.version or (builtins.substring 1 (builtins.stringLength cwaRev) cwaRev);
       in
       {
@@ -91,7 +88,6 @@
             WorkingDir = "/config";
           };
         };
-
         calibreWebAutomatedVersion = cwaVersion;
       });
 }
