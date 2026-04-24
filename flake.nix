@@ -1,5 +1,5 @@
 {
-  description = "Calibre-Web-Automated distroless image (pip-based)";
+  description = "Calibre-Web-Automated distroless image";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -41,6 +41,9 @@
             cp -r $src /tmp/cwa-src
             chmod -R +w /tmp/cwa-src
             cd /tmp/cwa-src
+
+            # REMOVE the original pyproject.toml
+            rm -f pyproject.toml
 
             # Inject a correct setup.py that only includes the 'cps' package
             cat > setup.py <<EOF
