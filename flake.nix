@@ -18,17 +18,37 @@
             owner = "crocodilestick";
             repo = "Calibre-Web-Automated";
             rev = "v4.0.6";                      # CI updates this
-            sha256 = "0y3a7w0lcqlslc4l2ygnbkn9c4gva4fbkmmqg1rdigwjr33c86z0";       # CI updates this
+            sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # CI updates this
           };
-          nativeBuildInputs = with pkgs; [ python3 cacert libffi openssl ];
+          nativeBuildInputs = with pkgs; [
+            python3
+            cacert
+            libffi
+            openssl
+            openldap        # for python-ldap
+            cyrus_sasl      # for python-ldap
+            pkg-config      # helps find libraries
+          ];
           buildCommand = ''
-            export LD_LIBRARY_PATH=${pkgs.libffi}/lib:${pkgs.openssl}/lib
+            # Set paths for compiler to find ldap and sasl headers/libraries
+            export CPPFLAGS="-I${pkgs.openldap}/include -I${pkgs.cyrus_sasl}/include"
+            export LDFLAGS="-L${pkgs.openldap}/lib -L${pkgs.cyrus_sasl}/lib"
+            export LD_LIBRARY_PATH="${pkgs.libffi}/lib:${pkgs.openssl}/lib:${pkgs.openldap}/lib:${pkgs.cyrus_sasl}/lib"
+
             python3 -m venv $out
             source $out/bin/activate
+
+            # Install python-ldap first
+            pip install --no-cache-dir --no-binary=python-ldap python-ldap
+
+            # Install all dependencies from requirements files
             pip install --no-cache-dir -r $src/requirements.txt
             pip install --no-cache-dir -r $src/optional-requirements.txt
+
+            # Install the application itself
             pip install --no-cache-dir $src
-            # Remove pip+setuptools to shrink image
+
+            # Remove pip and setuptools to reduce size
             rm -rf $out/lib/python*/site-packages/pip*
             rm -rf $out/lib/python*/site-packages/setuptools*
           '';
