@@ -1,5 +1,5 @@
 {
-  description = "Calibre-Web-Automated distroless image";
+  description = "Calibre-Web-Automated distroless image (pip-based)";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -37,15 +37,14 @@
             pkg-config
           ];
           buildCommand = ''
-            # Create a writable copy of the source
             cp -r $src /tmp/cwa-src
             chmod -R +w /tmp/cwa-src
             cd /tmp/cwa-src
 
-            # REMOVE the original pyproject.toml
+            # Remove problematic pyproject.toml
             rm -f pyproject.toml
 
-            # Inject a correct setup.py that only includes the 'cps' package
+            # Inject correct setup.py
             cat > setup.py <<EOF
             from setuptools import setup
             setup(
@@ -57,26 +56,16 @@
             )
             EOF
 
-            # Set compiler flags for python-ldap
             export CPPFLAGS="-I${pkgs.openldap}/include -I${pkgs.cyrus_sasl}/include"
             export LDFLAGS="-L${pkgs.openldap}/lib -L${pkgs.cyrus_sasl}/lib"
             export LD_LIBRARY_PATH="${pkgs.libffi}/lib:${pkgs.openssl}/lib:${pkgs.openldap}/lib:${pkgs.cyrus_sasl}/lib"
 
-            # Create virtual environment and install
             python3 -m venv $out
             source $out/bin/activate
-
-            # Install python-ldap first (compiled from source)
             pip install --no-cache-dir --no-binary=python-ldap python-ldap
-
-            # Install all dependencies from requirements files
             pip install --no-cache-dir -r requirements.txt
             pip install --no-cache-dir -r optional-requirements.txt
-
-            # Install the application itself (use --no-deps to avoid re‑installing dependencies)
             pip install --no-cache-dir --no-deps .
-
-            # Remove pip and setuptools to shrink image
             rm -rf $out/lib/python*/site-packages/pip*
             rm -rf $out/lib/python*/site-packages/setuptools*
           '';
