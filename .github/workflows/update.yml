@@ -2,11 +2,11 @@ name: Update to latest tag
 
 on:
   schedule:
-    - cron: '0 12 * * *'   # daily
+    - cron: '0 12 * * *'
   workflow_dispatch:
     inputs:
       force_rebuild:
-        description: 'Force rebuild (regenerate hash and uv.lock even if tag unchanged)'
+        description: 'Force rebuild'
         required: false
         default: false
         type: boolean
@@ -19,6 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
 
       - name: Get latest tag
         id: latest
@@ -52,7 +58,7 @@ jobs:
         if: steps.check.outputs.update == 'true'
         run: |
           NEW_TAG="${{ steps.latest.outputs.tag }}"
-          # Compute hash for fetchFromGitHub (SRI format)
+          # Compute hash using nix-prefetch-git (provided by Nix)
           HASH=$(nix-prefetch-git https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "$NEW_TAG" | jq -r '.sha256')
           sed -i "s|cwaRev = \".*\"|cwaRev = \"$NEW_TAG\"|" flake.nix
           sed -i "s|cwaSha256 = \".*\"|cwaSha256 = \"$HASH\"|" flake.nix
@@ -69,7 +75,3 @@ jobs:
           git add flake.nix uv.lock
           git commit -m "chore: update to $NEW_TAG (force=${GITHUB_EVENT_INPUTS_FORCE_REBUILD:-false})"
           git push
-
-      - name: No update needed
-        if: steps.check.outputs.update == 'false'
-        run: echo "Tag unchanged and no force rebuild requested. Skipping."
