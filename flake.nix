@@ -1,5 +1,5 @@
 {
-  description = "Calibre-Web-Automated Distroless image";
+  description = "Calibre-Web-Automated image";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -26,10 +26,10 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        # ---- CI updates these two lines ----
+        # ---- CI updates these lines ----
         cwaRev = "v4.0.6";
         cwaSha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-        # -----------------------------------
+        # --------------------------------
 
         src = pkgs.fetchFromGitHub {
           owner = "crocodilestick";
@@ -38,16 +38,26 @@
           sha256 = cwaSha256;
         };
 
+        # Patch pyproject.toml: add 'calibreweb' to build-system.requires
+        patchedSrc = pkgs.runCommand "cwa-patched-src" { } ''
+          cp -r ${src} $out
+          chmod -R +w $out
+          # Add "calibreweb" to the list of build-system requires
+          # The file has a line: 'requires = ["setuptools>=69.0", ...]'
+          # We insert a new line after that opening bracket.
+          sed -i '/requires = \[/a\    "calibreweb",' $out/pyproject.toml
+        '';
+
         # Python interpreter
         python = pkgs.python312;
 
-        # Load the uv workspace from the fetched source (requires uv.lock inside)
-        workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = src; };
+        # Load workspace from patched source (nb: uv.lock must also be present)
+        workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = patchedSrc; };
 
-        # Generate Nix overlay from uv.lock, preferring wheels for speed
+        # Generate Nix overlay from uv.lock
         uvLockedOverlay = workspace.mkPyprojectOverlay { sourcePreference = "wheel"; };
 
-        # Build the final Python package set with the overlay
+        # Build the final Python package set
         pythonSet = (pkgs.callPackage pyproject-nix.build.packages {
           inherit python;
           overrides = [ uvLockedOverlay ];
@@ -56,7 +66,6 @@
         # The Calibre-Web-Automated package
         cwa = pythonSet.calibre-web-automated;
 
-        # Extract version from the package (or fallback to rev)
         cwaVersion = cwa.version or (builtins.substring 1 (builtins.stringLength cwaRev) cwaRev);
       in
       {
@@ -76,19 +85,13 @@
               "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"
             ];
             ExposedPorts = { "8083/tcp" = {}; };
-            Volumes = {
-              "/config" = {};
-              "/books" = {};
-            };
-            # The actual entry point as defined in pyproject.toml
+            Volumes = { "/config" = {}; "/books" = {}; };
             Cmd = [ "${cwa}/bin/cps" ];
             User = "1000";
             WorkingDir = "/config";
           };
         };
 
-        # Expose the version for CI (so the build workflow can tag the image)
         calibreWebAutomatedVersion = cwaVersion;
-      }
-    );
+      });
 }
