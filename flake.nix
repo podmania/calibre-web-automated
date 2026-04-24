@@ -16,7 +16,7 @@
           src = pkgs.fetchFromGitHub {
             owner = "crocodilestick";
             repo = "Calibre-Web-Automated";
-            rev = "v3.1.1";
+            rev = "v4.0.6";
             sha256 = "";
           };
           nativeBuildInputs = with pkgs; [ python3 cacert ];
