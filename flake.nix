@@ -9,7 +9,7 @@
 
     # ---- CI updates these two lines ----
     cwaRev = "v4.0.6";
-    cwaSha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    cwaSha256 = "0y3a7w0lcqlslc4l2ygnbkn9c4gva4fbkmmqg1rdigwjr33c86z0";
     # --------------------------------
 
   in {
