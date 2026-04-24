@@ -27,34 +27,27 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v27
+      - uses: cachix/install-nix-action@v27
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
-
-      - name: Login to GHCR
-        uses: docker/login-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.PAT_TOKEN }}
-
       - name: Build OCI image
         run: |
           nix build .#calibre-web-automated \
             --impure \
             --option sandbox false \
             --option system ${{ matrix.system }}
-
       - name: Load and tag
         run: |
           docker load < result
           VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --impure --option system ${{ matrix.system }})
           docker tag calibre-web-automated:latest ${{ env.REGISTRY }}/${{ github.repository }}:${VERSION}-${{ matrix.arch }}
           docker tag calibre-web-automated:latest ${{ env.REGISTRY }}/${{ github.repository }}:latest-${{ matrix.arch }}
-
       - name: Push
         run: |
           VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --impure --option system ${{ matrix.system }})
@@ -66,6 +59,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
       - uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -73,12 +70,11 @@ jobs:
           password: ${{ secrets.PAT_TOKEN }}
       - name: Create multi-arch manifest
         run: |
-          VERSION=$(grep -oP 'calibreWebAutomatedVersion = "\K[^"]+' flake.nix | head -1)
+          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --impure)
           docker manifest create ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION \
             --amend ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION-amd64 \
             --amend ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION-arm64
           docker manifest push ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION
-
           docker manifest create ${{ env.REGISTRY }}/${{ github.repository }}:latest \
             --amend ${{ env.REGISTRY }}/${{ github.repository }}:latest-amd64 \
             --amend ${{ env.REGISTRY }}/${{ github.repository }}:latest-arm64
