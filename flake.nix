@@ -18,7 +18,7 @@
             owner = "crocodilestick";
             repo = "Calibre-Web-Automated";
             rev = "v4.0.6";
-            sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+            sha256 = "0y3a7w0lcqlslc4l2ygnbkn9c4gva4fbkmmqg1rdigwjr33c86z0";
           };
           nativeBuildInputs = with pkgs; [
             python3
