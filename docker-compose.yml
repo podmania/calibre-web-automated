@@ -1,0 +1,19 @@
+services:
+  lidarr:
+    image: ghcr.io/podmania/lidarr:latest
+    # set to host user id and gid
+    # defaults to 1000:1000
+    # user: 1001:1001
+    container_name: lidarr
+    ports:
+      - 8686:8686
+    volumes:   
+      - ./config:/config
+      # Per Lidarr best practice, downloads and media should both be under /data to avoid remote folder mapping and performance bottlenecks
+      # ex. /data/music, /data/downloads
+      - ./data:/data
+      - /etc/localtime:/etc/localtime:ro # optional: use either TZ variable or localtime mapping, not both
+    # environment:
+    #   - TZ=America/New_York
+    restart: unless-stopped
+
