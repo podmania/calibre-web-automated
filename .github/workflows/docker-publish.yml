@@ -43,11 +43,12 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
+          
       - name: Build OCI image
         run: |
           nix build .#calibre-web-automated \
             --impure \
+            --option sandbox false \
             --option system ${{ matrix.system }}
 
       - name: Load and tag
