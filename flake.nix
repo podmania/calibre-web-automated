@@ -6,6 +6,12 @@
   outputs = { self, nixpkgs }: let
     system = builtins.currentSystem;
     pkgs = nixpkgs.legacyPackages.${system};
+
+    # ---- CI updates these two lines ----
+    cwaRev = "v4.0.6";
+    cwaSha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    # --------------------------------
+
   in {
     packages.${system}.calibre-web-automated = pkgs.dockerTools.buildLayeredImage {
       name = "calibre-web-automated";
@@ -13,14 +19,11 @@
       contents = [
         (pkgs.stdenv.mkDerivation {
           name = "cwa-pip-env";
-          # ---- CI UPDATES THESE TWO LINES ----
-          rev = "v4.0.6";
-          sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";  # placeholder
-          # -----------------------------------
           src = pkgs.fetchFromGitHub {
             owner = "crocodilestick";
             repo = "Calibre-Web-Automated";
-            inherit rev sha256;
+            rev = cwaRev;
+            sha256 = cwaSha256;
           };
           nativeBuildInputs = with pkgs; [ python3 cacert ];
           buildCommand = ''
@@ -53,7 +56,7 @@
       };
     };
 
-    # Expose the current version for CI
-    calibreWebAutomatedVersion = "v4.0.6";   # CI updates this line too
+    # For CI to read the current version
+    calibreWebAutomatedVersion = cwaRev;
   };
 }
