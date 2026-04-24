@@ -1,0 +1,49 @@
+name: Update to latest tag
+
+on:
+  schedule:
+    - cron: '0 12 * * *'   # daily at 12:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get latest tag
+        id: latest
+        run: |
+          LATEST=$(curl -s https://api.github.com/repos/crocodilestick/Calibre-Web-Automated/tags | jq -r '.[0].name')
+          echo "tag=$LATEST" >> $GITHUB_OUTPUT
+
+      - name: Get current tag
+        id: current
+        run: |
+          CURRENT=$(grep -oP 'cwaRev = "\K[^"]+' flake.nix | head -1)
+          echo "tag=$CURRENT" >> $GITHUB_OUTPUT
+
+      - name: Update flake.nix and uv.lock if new tag
+        if: steps.latest.outputs.tag != steps.current.outputs.tag
+        run: |
+          NEW_TAG="${{ steps.latest.outputs.tag }}"
+          # Compute hash for fetchFromGitHub (SRI format)
+          HASH=$(nix-prefetch-git https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "$NEW_TAG" | jq -r '.sha256')
+          sed -i "s|cwaRev = \".*\"|cwaRev = \"$NEW_TAG\"|" flake.nix
+          sed -i "s|cwaSha256 = \".*\"|cwaSha256 = \"$HASH\"|" flake.nix
+          sed -i "s|calibreWebAutomatedVersion = \".*\"|calibreWebAutomatedVersion = \"$NEW_TAG\"|" flake.nix
+
+          # Regenerate uv.lock from the source at this tag
+          git clone --depth 1 --branch "$NEW_TAG" https://github.com/crocodilestick/Calibre-Web-Automated.git /tmp/cwa-src
+          cd /tmp/cwa-src
+          nix shell nixpkgs#uv -c uv lock
+          cp uv.lock $GITHUB_WORKSPACE/
+
+          cd $GITHUB_WORKSPACE
+          git config user.name "github-actions[bot]"
+          git add flake.nix uv.lock
+          git commit -m "chore: update to $NEW_TAG"
+          git push
