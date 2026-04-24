@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       force_rebuild:
-        description: 'Force rebuild (recompute hash even if tag unchanged)'
+        description: 'Force rehash'
         required: false
         default: false
         type: boolean
@@ -36,7 +36,7 @@ jobs:
           CURRENT=$(grep -oP 'rev = "\K[^"]+' flake.nix | head -1)
           echo "tag=$CURRENT" >> $GITHUB_OUTPUT
 
-      - name: Check if update needed
+      - name: Determine if update needed
         id: check
         run: |
           FORCE=${{ github.event.inputs.force_rebuild == 'true' }}
@@ -56,8 +56,12 @@ jobs:
         if: steps.check.outputs.update == 'true'
         run: |
           NEW_TAG="${{ steps.latest.outputs.tag }}"
-          # Compute hash using nix-prefetch-git (SRI hash, format like "sha256-xxxx")
-          HASH=$(nix-prefetch-git https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "$NEW_TAG" | jq -r '.sha256')
+          # Compute hash using nix run nixpkgs#nix-prefetch-git
+          HASH=$(nix run nixpkgs#nix-prefetch-git -- https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "$NEW_TAG" | jq -r '.sha256')
+          if [ -z "$HASH" ]; then
+            echo "Failed to compute hash" >&2
+            exit 1
+          fi
           sed -i "s|rev = \".*\"|rev = \"$NEW_TAG\"|" flake.nix
           sed -i "s|sha256 = \".*\"|sha256 = \"$HASH\"|" flake.nix
           sed -i "s|calibreWebAutomatedVersion = \".*\"|calibreWebAutomatedVersion = \"$NEW_TAG\"|" flake.nix
