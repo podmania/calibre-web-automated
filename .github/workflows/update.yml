@@ -2,8 +2,14 @@ name: Update to latest tag
 
 on:
   schedule:
-    - cron: '0 12 * * *'   # daily at 12:00 UTC
+    - cron: '0 12 * * *'   # daily
   workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild (regenerate hash and uv.lock even if tag unchanged)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -26,8 +32,24 @@ jobs:
           CURRENT=$(grep -oP 'cwaRev = "\K[^"]+' flake.nix | head -1)
           echo "tag=$CURRENT" >> $GITHUB_OUTPUT
 
-      - name: Update flake.nix and uv.lock if new tag
-        if: steps.latest.outputs.tag != steps.current.outputs.tag
+      - name: Determine if update needed
+        id: check
+        run: |
+          FORCE=${{ github.event.inputs.force_rebuild == 'true' }}
+          if [ "$FORCE" = "true" ]; then
+            echo "update=true" >> $GITHUB_OUTPUT
+            echo "Force rebuild requested" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          if [ "${{ steps.latest.outputs.tag }}" != "${{ steps.current.outputs.tag }}" ]; then
+            echo "update=true" >> $GITHUB_OUTPUT
+            echo "New tag detected" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "update=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update flake.nix and uv.lock
+        if: steps.check.outputs.update == 'true'
         run: |
           NEW_TAG="${{ steps.latest.outputs.tag }}"
           # Compute hash for fetchFromGitHub (SRI format)
@@ -45,5 +67,9 @@ jobs:
           cd $GITHUB_WORKSPACE
           git config user.name "github-actions[bot]"
           git add flake.nix uv.lock
-          git commit -m "chore: update to $NEW_TAG"
+          git commit -m "chore: update to $NEW_TAG (force=${GITHUB_EVENT_INPUTS_FORCE_REBUILD:-false})"
           git push
+
+      - name: No update needed
+        if: steps.check.outputs.update == 'false'
+        run: echo "Tag unchanged and no force rebuild requested. Skipping."
