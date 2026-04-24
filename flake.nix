@@ -44,7 +44,7 @@
             # Remove problematic pyproject.toml
             rm -f pyproject.toml
 
-            # Inject correct setup.py
+            # Inject correct setup.py with entry_points
             cat > setup.py <<EOF
             from setuptools import setup
             setup(
@@ -53,6 +53,11 @@
                 packages=["cps"],
                 package_dir={"cps": "cps"},
                 include_package_data=True,
+                entry_points={
+                    "console_scripts": [
+                        "cps = cps:main",
+                    ],
+                },
             )
             EOF
 
@@ -66,6 +71,19 @@
             pip install --no-cache-dir -r requirements.txt
             pip install --no-cache-dir -r optional-requirements.txt
             pip install --no-cache-dir --no-deps .
+
+            # Fallback: if cps script still missing, create it manually
+            if [ ! -f $out/bin/cps ]; then
+                cat > $out/bin/cps <<'EOSCRIPT'
+            #!$out/bin/python
+            from cps import main
+            if __name__ == "__main__":
+                main()
+            EOSCRIPT
+                chmod +x $out/bin/cps
+            fi
+
+            # Remove pip and setuptools to shrink image
             rm -rf $out/lib/python*/site-packages/pip*
             rm -rf $out/lib/python*/site-packages/setuptools*
           '';
