@@ -50,8 +50,8 @@ jobs:
           echo "New hash: $HASH"
       
           # Update the three lines in flake.nix
-          sed -i "s|rev = \".*\"|rev = \"$NEW_TAG\"|" flake.nix
-          sed -i "s|sha256 = \".*\"|sha256 = \"$HASH\"|" flake.nix
+          sed -i "s|cwaRev = \".*\"|cwaRev = \"$NEW_TAG\"|" flake.nix
+          sed -i "s|cwaSha256 = \".*\"|cwaSha256 = \"$HASH\"|" flake.nix
           sed -i "s|calibreWebAutomatedVersion = \".*\"|calibreWebAutomatedVersion = \"$NEW_TAG\"|" flake.nix
       
           git config user.name "github-actions[bot]"
