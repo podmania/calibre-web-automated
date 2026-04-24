@@ -13,26 +13,24 @@
       contents = [
         (pkgs.stdenv.mkDerivation {
           name = "cwa-pip-env";
+          # ---- CI UPDATES THESE TWO LINES ----
+          rev = "v4.0.6";
+          sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";  # placeholder
+          # -----------------------------------
           src = pkgs.fetchFromGitHub {
             owner = "crocodilestick";
             repo = "Calibre-Web-Automated";
-            rev = "v4.0.6";
-            sha256 = "";
+            inherit rev sha256;
           };
           nativeBuildInputs = with pkgs; [ python3 cacert ];
           buildCommand = ''
-            # Create a virtual environment in $out
             python3 -m venv $out
             source $out/bin/activate
-            # Install dependencies (allow network access – impure)
             pip install --no-cache-dir -r $src/requirements.txt
             pip install --no-cache-dir -r $src/optional-requirements.txt
-            # Install the application itself
             pip install --no-cache-dir $src
-            # Remove pip and setuptools to shrink
             rm -rf $out/lib/python*/site-packages/pip*
             rm -rf $out/lib/python*/site-packages/setuptools*
-            # Link the entrypoint for convenience
             mkdir -p $out/bin
             ln -s $out/bin/cps $out/bin/calibre-web-automated
           '';
@@ -54,5 +52,8 @@
         WorkingDir = "/config";
       };
     };
+
+    # Expose the current version for CI
+    calibreWebAutomatedVersion = "v4.0.6";   # CI updates this line too
   };
 }
