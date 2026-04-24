@@ -1,0 +1,70 @@
+name: Update Python dependencies
+
+on:
+  schedule:
+    - cron: '0 12 * * 0'   # weekly
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      # Install Nix (to run pip2nix)
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      # Install pip2nix (from its flake or via nixpkgs)
+      - name: Install pip2nix
+        run: |
+          nix profile install nixpkgs#pip2nix
+
+      # Fetch latest requirements files
+      - name: Fetch requirements files
+        run: |
+          curl -L -o requirements.txt \
+            https://raw.githubusercontent.com/crocodilestick/Calibre-Web-Automated/main/requirements.txt
+          curl -L -o optional-requirements.txt \
+            https://raw.githubusercontent.com/crocodilestick/Calibre-Web-Automated/main/optional-requirements.txt
+
+      # Compute combined hash
+      - name: Compute hash
+        id: hash
+        run: |
+          HASH=$(cat requirements.txt optional-requirements.txt | sha256sum | cut -d' ' -f1)
+          echo "hash=$HASH" >> $GITHUB_OUTPUT
+
+      # Check if hash changed
+      - name: Read stored hash
+        id: stored
+        run: |
+          if [ -f .requirements-hash ]; then
+            STORED=$(cat .requirements-hash)
+          else
+            STORED=""
+          fi
+          echo "stored=$STORED" >> $GITHUB_OUTPUT
+
+      # Generate deps.nix if hash changed
+      - name: Generate deps.nix with pip2nix
+        if: steps.hash.outputs.hash != steps.stored.outputs.stored
+        run: |
+          pip2nix generate -r requirements.txt -r optional-requirements.txt -o requirements.nix
+
+      # Commit changes
+      - name: Commit and push
+        if: steps.hash.outputs.hash != steps.stored.outputs.stored
+        run: |
+          echo "${{ steps.hash.outputs.hash }}" > .requirements-hash
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add requirements.nix .requirements-hash
+          git commit -m "chore: update Python dependencies (hash ${{ steps.hash.outputs.hash }})"
+          git push
