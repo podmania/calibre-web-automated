@@ -18,7 +18,7 @@
             owner = "crocodilestick";
             repo = "Calibre-Web-Automated";
             rev = "v4.0.6";                      # CI updates this
-            sha256 = "";       # CI updates this
+            sha256 = "0y3a7w0lcqlslc4l2ygnbkn9c4gva4fbkmmqg1rdigwjr33c86z0";       # CI updates this
           };
           nativeBuildInputs = with pkgs; [ python3 cacert libffi openssl ];
           buildCommand = ''
