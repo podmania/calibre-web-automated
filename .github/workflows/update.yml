@@ -4,12 +4,6 @@ on:
   schedule:
     - cron: '0 12 * * *'
   workflow_dispatch:
-    inputs:
-      force_rebuild:
-        description: 'Force rebuild'
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: write
@@ -19,59 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v27
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
+      - uses: cachix/install-nix-action@v27
       - name: Get latest tag
         id: latest
-        run: |
-          LATEST=$(curl -s https://api.github.com/repos/crocodilestick/Calibre-Web-Automated/tags | jq -r '.[0].name')
-          echo "tag=$LATEST" >> $GITHUB_OUTPUT
-
+        run: echo "tag=$(curl -s https://api.github.com/repos/crocodilestick/Calibre-Web-Automated/tags | jq -r '.[0].name')" >> $GITHUB_OUTPUT
       - name: Get current tag
         id: current
-        run: |
-          CURRENT=$(grep -oP 'cwaRev = "\K[^"]+' flake.nix | head -1)
-          echo "tag=$CURRENT" >> $GITHUB_OUTPUT
-
-      - name: Determine if update needed
-        id: check
-        run: |
-          FORCE=${{ github.event.inputs.force_rebuild == 'true' }}
-          if [ "$FORCE" = "true" ]; then
-            echo "update=true" >> $GITHUB_OUTPUT
-            echo "Force rebuild requested" >> $GITHUB_STEP_SUMMARY
-            exit 0
-          fi
-          if [ "${{ steps.latest.outputs.tag }}" != "${{ steps.current.outputs.tag }}" ]; then
-            echo "update=true" >> $GITHUB_OUTPUT
-            echo "New tag detected" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "update=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Update flake.nix and uv.lock
-        if: steps.check.outputs.update == 'true'
+        run: echo "tag=$(grep -oP 'rev = "\K[^"]+' flake.nix | head -1)" >> $GITHUB_OUTPUT
+      - if: steps.latest.outputs.tag != steps.current.outputs.tag
         run: |
           NEW_TAG="${{ steps.latest.outputs.tag }}"
-          # Compute hash using nix-prefetch-git (provided by Nix)
           HASH=$(nix-prefetch-git https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "$NEW_TAG" | jq -r '.sha256')
-          sed -i "s|cwaRev = \".*\"|cwaRev = \"$NEW_TAG\"|" flake.nix
-          sed -i "s|cwaSha256 = \".*\"|cwaSha256 = \"$HASH\"|" flake.nix
+          sed -i "s|rev = \".*\"|rev = \"$NEW_TAG\"|" flake.nix
+          sed -i "s|sha256 = \".*\"|sha256 = \"$HASH\"|" flake.nix
           sed -i "s|calibreWebAutomatedVersion = \".*\"|calibreWebAutomatedVersion = \"$NEW_TAG\"|" flake.nix
-
-          # Regenerate uv.lock from the source at this tag
-          git clone --depth 1 --branch "$NEW_TAG" https://github.com/crocodilestick/Calibre-Web-Automated.git /tmp/cwa-src
-          cd /tmp/cwa-src
-          nix shell nixpkgs#uv -c uv lock
-          cp uv.lock $GITHUB_WORKSPACE/
-
-          cd $GITHUB_WORKSPACE
           git config user.name "github-actions[bot]"
-          git add flake.nix uv.lock
-          git commit -m "chore: update to $NEW_TAG (force=${GITHUB_EVENT_INPUTS_FORCE_REBUILD:-false})"
+          git add flake.nix
+          git commit -m "chore: update to $NEW_TAG"
           git push
