@@ -3,10 +3,7 @@ name: Build and Push
 on:
   push:
     branches: [main]
-    paths:
-      - 'flake.nix'
-      - 'uv.lock'
-      - 'flake.lock'
+    paths: ['flake.nix']
   workflow_dispatch:
 
 permissions:
@@ -15,7 +12,6 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build:
@@ -31,50 +27,31 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: cachix/install-nix-action@v27
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - name: Login to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build OCI image
-        run: |
-          nix build .#default \
-            --option system ${{ matrix.system }}
-
-      - name: Load and tag
-        run: |
-          docker load < result
-          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --option system ${{ matrix.system }})
-          docker tag calibre-web-automated:latest ${{ env.REGISTRY }}/${{ github.repository }}:${VERSION}-${{ matrix.arch }}
-          docker tag calibre-web-automated:latest ${{ env.REGISTRY }}/${{ github.repository }}:latest-${{ matrix.arch }}
-
-      - name: Push
-        run: |
-          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --option system ${{ matrix.system }})
-          docker push ${{ env.REGISTRY }}/${{ github.repository }}:${VERSION}-${{ matrix.arch }}
-          docker push ${{ env.REGISTRY }}/${{ github.repository }}:latest-${{ matrix.arch }}
-
-  create-manifest:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Create multi-arch manifest
-        run: |
-          VERSION=$(grep -oP 'cwaRev = "\K[^"]+' flake.nix | head -1)
+      - run: nix build .#calibre-web-automated --option sandbox false --option system ${{ matrix.system }}
+      - run: |
+          docker load < result
+          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --impure --option system ${{ matrix.system }})
+          docker tag calibre-web-automated:latest ${{ env.REGISTRY }}/${{ github.repository }}:${VERSION}-${{ matrix.arch }}
+          docker tag calibre-web-automated:latest ${{ env.REGISTRY }}/${{ github.repository }}:latest-${{ matrix.arch }}
+          docker push ${{ env.REGISTRY }}/${{ github.repository }}:${VERSION}-${{ matrix.arch }}
+          docker push ${{ env.REGISTRY }}/${{ github.repository }}:latest-${{ matrix.arch }}
+  create-manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          VERSION=$(grep -oP 'calibreWebAutomatedVersion = "\K[^"]+' flake.nix | head -1)
           docker manifest create ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION \
             --amend ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION-amd64 \
             --amend ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION-arm64
