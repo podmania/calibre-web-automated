@@ -79,8 +79,8 @@ jobs:
       - name: Regenerate deps.nix
         if: steps.check.outputs.update == 'true'
         run: |
-          pip2nix generate -r requirements.txt -r optional-requirements.txt > deps.nix
-          git add deps.nix
+          pip2nix generate -r requirements.txt -r optional-requirements.txt
+          git add python-packages.nix
 
       - name: Commit and push all changes
         if: steps.check.outputs.update == 'true'
