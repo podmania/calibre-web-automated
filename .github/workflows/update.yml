@@ -65,9 +65,6 @@ jobs:
         run: |
           TAG="${{ steps.latest.outputs.tag }}"
           curl -L -o requirements.txt "https://raw.githubusercontent.com/crocodilestick/Calibre-Web-Automated/$TAG/requirements.txt"
-          curl -L -o optional-requirements.txt "https://raw.githubusercontent.com/crocodilestick/Calibre-Web-Automated/$TAG/optional-requirements.txt"
-          # Combine both into a single requirements.txt (excluding optional deps that cause trouble? We'll keep all)
-          cat optional-requirements.txt >> requirements.txt
           git add requirements.txt
 
       - name: Commit and push all changes
