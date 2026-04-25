@@ -36,12 +36,6 @@
             python3 -m venv $out/venv
             source $out/venv/bin/activate
 
-            # Install system library dependencies for python-ldap
-            export LD_LIBRARY_PATH=${pkgs.openldap}/lib:${pkgs.cyrus_sasl}/lib
-            export CFLAGS="-I${pkgs.openldap}/include -I${pkgs.cyrus_sasl}/include"
-            export LDFLAGS="-L${pkgs.openldap}/lib -L${pkgs.cyrus_sasl}/lib"
-
-            pip install --no-cache-dir --no-binary=python-ldap python-ldap
             pip install --no-cache-dir -r $out/app/requirements.txt
             pip install --no-cache-dir -r $out/app/optional-requirements.txt
 
@@ -59,7 +53,6 @@
         Env = [
           "PORT=8083"
           "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"
-          "PYTHONPATH=/cwa-app/app"   # ensure cps module is found
         ];
         ExposedPorts = { "8083/tcp" = {}; };
         Volumes = { "/config" = {}; "/books" = {}; };
