@@ -59,14 +59,45 @@ jobs:
           sed -i "s|cwaSha256 = \".*\"|cwaSha256 = \"$HASH\"|" flake.nix
           sed -i "s|calibreWebAutomatedVersion = \".*\"|calibreWebAutomatedVersion = \"$NEW_TAG\"|" flake.nix
           git add flake.nix
-
+          
       - name: Fetch requirements files and combine them
         if: steps.check.outputs.update == 'true'
         run: |
           TAG="${{ steps.latest.outputs.tag }}"
           curl -L -o requirements.txt "https://raw.githubusercontent.com/crocodilestick/Calibre-Web-Automated/$TAG/requirements.txt"
+          curl -L -o optional-requirements.txt "https://raw.githubusercontent.com/crocodilestick/Calibre-Web-Automated/$TAG/optional-requirements.txt"
+          
+          # Get the list of available Python package names from nixpkgs
+          nix eval nixpkgs#python3.pkgs --apply 'builtins.attrNames' --raw > pkglist.txt
+          # Convert to a line-separated list for grep
+          cat pkglist.txt | tr ' ' '\n' | sed 's/^"//;s/"$//' > pkgs.txt
+      
+          # Filter requirements.txt: keep lines where the first word (package name) is in pkgs.txt
+          filter_requirements() {
+            local infile=$1
+            local outfile=$2
+            > "$outfile"
+            while IFS= read -r line; do
+              # Skip empty lines and comments
+              [[ -z "$line" || "$line" =~ ^# ]] && continue
+              # Extract package name (everything before any of =,<,>,!,~)
+              pkg_name=$(echo "$line" | sed -E 's/([a-zA-Z0-9_\.-]+).*/\1/')
+              if grep -Fxq "$pkg_name" pkgs.txt; then
+                echo "$line" >> "$outfile"
+              else
+                echo "Skipping missing package: $pkg_name" >> $GITHUB_STEP_SUMMARY
+              fi
+            done < "$infile"
+          }
+      
+          filter_requirements requirements.txt requirements.filtered.txt
+          filter_requirements optional-requirements.txt optional.filtered.txt
+      
+          # Combine filtered files
+          cat optional.filtered.txt >> requirements.filtered.txt
+          mv requirements.filtered.txt requirements.txt
           git add requirements.txt
-
+    
       - name: Commit and push all changes
         if: steps.check.outputs.update == 'true'
         run: |
