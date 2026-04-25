@@ -80,6 +80,7 @@ jobs:
         if: steps.check.outputs.update == 'true'
         run: |
           pip2nix generate -r requirements.txt -r optional-requirements.txt
+          ls -la
           git add python-packages.nix
 
       - name: Commit and push all changes
