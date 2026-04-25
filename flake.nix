@@ -26,21 +26,22 @@
         (pkgs.stdenv.mkDerivation {
           name = "cwa-app";
           __noChroot = true;
-          nativeBuildInputs = with pkgs; [ python3 cacert ];
+          nativeBuildInputs = with pkgs; [ python3 pkg-config openldap cyrus_sasl cacert ];
           buildCommand = ''
+            set -e
             mkdir -p $out/app
             cp -r ${src}/* $out/app/
+
+            export PKG_CONFIG_PATH=${pkgs.openldap}/lib/pkgconfig:${pkgs.cyrus_sasl}/lib/pkgconfig
+
             python3 -m venv $out/venv
             source $out/venv/bin/activate
-
-            export CPPFLAGS="-I${pkgs.openldap}/include -I${pkgs.cyrus_sasl}/include"
-            export LDFLAGS="-L${pkgs.openldap}/lib -L${pkgs.cyrus_sasl}/lib"
-            export LD_LIBRARY_PATH="${pkgs.openldap}/lib:${pkgs.cyrus_sasl}/lib
 
             # Install dependencies
             pip install --no-cache-dir -r $out/app/requirements.txt
             pip install --no-cache-dir -r $out/app/optional-requirements.txt
 
+            # Clean up
             rm -rf $out/venv/lib/python*/site-packages/pip*
             rm -rf $out/venv/lib/python*/site-packages/setuptools*
           '';
@@ -49,10 +50,10 @@
         pkgs.kepubify
         pkgs.cacert
         pkgs.tzdata
-        pkgs.openldap    # runtime dependency for python-ldap
-        pkgs.cyrus_sasl  # runtime dependency for python-ldap
-        pkgs.libffi      # for cryptography wheel
-        pkgs.openssl     # for cryptography wheel
+        pkgs.openldap
+        pkgs.cyrus_sasl
+        pkgs.libffi
+        pkgs.openssl
       ];
       config = {
         Env = [
