@@ -18,32 +18,20 @@
       rev = cwaRev;
       sha256 = cwaSha256;
     };
+
+    # Generated dependencies (list of Python packages)
+    deps = (import ./deps.nix) { inherit pkgs; };
+
+    # Python environment containing all required packages
+    pythonEnv = pkgs.python3.withPackages (_: deps);
+
   in {
     packages.${system}.calibre-web-automated = pkgs.dockerTools.buildLayeredImage {
       name = "calibre-web-automated";
       tag = "latest";
       contents = [
-        (pkgs.stdenv.mkDerivation {
-          name = "cwa-app";
-          __noChroot = true;
-          nativeBuildInputs = with pkgs; [ python3 ];
-          buildCommand = ''
-            # Copy source code
-            mkdir -p $out/app
-            cp -r ${src}/* $out/app/
-
-            # Create virtual environment and install dependencies
-            python3 -m venv $out/venv
-            source $out/venv/bin/activate
-
-            pip install --no-cache-dir -r $out/app/requirements.txt
-            pip install --no-cache-dir -r $out/app/optional-requirements.txt
-
-            # Remove pip+setuptools to shrink
-            rm -rf $out/venv/lib/python*/site-packages/pip*
-            rm -rf $out/venv/lib/python*/site-packages/setuptools*
-          '';
-        })
+        pythonEnv
+        src
         pkgs.calibre
         pkgs.kepubify
         pkgs.cacert
@@ -56,7 +44,7 @@
         ];
         ExposedPorts = { "8083/tcp" = {}; };
         Volumes = { "/config" = {}; "/books" = {}; };
-        Cmd = [ "/cwa-app/venv/bin/python" "/cwa-app/app/cps.py" ];
+        Cmd = [ "${pythonEnv}/bin/python" "${src}/cps.py" ];
         User = "1000";
         WorkingDir = "/config";
       };
