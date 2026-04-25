@@ -40,6 +40,9 @@
             pip install --no-cache-dir -r $out/app/requirements.txt
             pip install --no-cache-dir -r $out/app/optional-requirements.txt
 
+            SITE_PACKAGES=$(find $out/venv/lib -type d -name site-packages | head -1)
+            echo "$out/app" > $SITE_PACKAGES/cwa.pth
+
             # Clean up
             rm -rf $out/venv/lib/python*/site-packages/pip*
             rm -rf $out/venv/lib/python*/site-packages/setuptools*
