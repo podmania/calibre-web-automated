@@ -37,7 +37,6 @@
             python3 -m venv $out/venv
             source $out/venv/bin/activate
 
-            # Install dependencies
             pip install --no-cache-dir -r $out/app/requirements.txt
             pip install --no-cache-dir -r $out/app/optional-requirements.txt
 
@@ -59,11 +58,11 @@
         Env = [
           "PORT=8083"
           "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"
-          "PYTHONPATH=/cwa-app/app"
+          "PYTHONPATH=/app"
         ];
         ExposedPorts = { "8083/tcp" = {}; };
         Volumes = { "/config" = {}; "/books" = {}; };
-        Cmd = [ "/cwa-app/venv/bin/python" "/cwa-app/app/cps.py" ];
+        Cmd = [ "/venv/bin/python" "/app/cps.py" ];
         User = "1000";
         WorkingDir = "/config";
       };
