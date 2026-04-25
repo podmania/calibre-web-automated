@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       force_rebuild:
-        description: 'Force rehash (ignore tag match)'
+        description: 'Force rebuild'
         required: false
         default: false
         type: boolean
@@ -24,9 +24,6 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - name: Install pip2nix
-        run: nix profile install github:nix-community/pip2nix
-
       - name: Get latest tag
         id: latest
         run: |
@@ -36,7 +33,7 @@ jobs:
       - name: Get current tag
         id: current
         run: |
-          CURRENT=$(grep -oP 'rev = "\K[^"]+' flake.nix | head -1)
+          CURRENT=$(grep -oP 'cwaRev = "\K[^"]+' flake.nix | head -1)
           echo "tag=$CURRENT" >> $GITHUB_OUTPUT
 
       - name: Determine if update needed
@@ -45,48 +42,38 @@ jobs:
           FORCE=${{ github.event.inputs.force_rebuild == 'true' }}
           if [ "$FORCE" = "true" ]; then
             echo "update=true" >> $GITHUB_OUTPUT
-            echo "Force rebuild requested" >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
           if [ "${{ steps.latest.outputs.tag }}" != "${{ steps.current.outputs.tag }}" ]; then
             echo "update=true" >> $GITHUB_OUTPUT
-            echo "New tag detected: ${{ steps.latest.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
           else
             echo "update=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update flake.nix (if needed)
+      - name: Update flake.nix (new rev and hash)
         if: steps.check.outputs.update == 'true'
         run: |
           NEW_TAG="${{ steps.latest.outputs.tag }}"
           HASH=$(nix run nixpkgs#nix-prefetch-git -- https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "$NEW_TAG" | jq -r '.sha256')
-          if [ -z "$HASH" ]; then
-            echo "Failed to compute hash" >&2
-            exit 1
-          fi
-          sed -i "s|rev = \".*\"|rev = \"$NEW_TAG\"|" flake.nix
-          sed -i "s|sha256 = \".*\"|sha256 = \"$HASH\"|" flake.nix
+          sed -i "s|cwaRev = \".*\"|cwaRev = \"$NEW_TAG\"|" flake.nix
+          sed -i "s|cwaSha256 = \".*\"|cwaSha256 = \"$HASH\"|" flake.nix
           sed -i "s|calibreWebAutomatedVersion = \".*\"|calibreWebAutomatedVersion = \"$NEW_TAG\"|" flake.nix
           git add flake.nix
 
-      - name: Fetch requirements files for the target tag
+      - name: Fetch requirements files and combine them
         if: steps.check.outputs.update == 'true'
         run: |
           TAG="${{ steps.latest.outputs.tag }}"
           curl -L -o requirements.txt "https://raw.githubusercontent.com/crocodilestick/Calibre-Web-Automated/$TAG/requirements.txt"
           curl -L -o optional-requirements.txt "https://raw.githubusercontent.com/crocodilestick/Calibre-Web-Automated/$TAG/optional-requirements.txt"
-      
-      - name: Regenerate deps.nix
-        if: steps.check.outputs.update == 'true'
-        run: |
-          pip2nix generate -r requirements.txt -r optional-requirements.txt
-          ls -la
-          git add python-packages.nix
+          # Combine both into a single requirements.txt (excluding optional deps that cause trouble? We'll keep all)
+          cat optional-requirements.txt >> requirements.txt
+          git add requirements.txt
 
       - name: Commit and push all changes
         if: steps.check.outputs.update == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: update to ${{ steps.latest.outputs.tag }} and regenerate dependencies"
+          git commit -m "chore: update to ${{ steps.latest.outputs.tag }} and sync requirements"
           git push
