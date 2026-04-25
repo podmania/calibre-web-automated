@@ -20,7 +20,7 @@
     };
 
     # Generated dependencies (list of Python packages)
-    deps = (import ./deps.nix) { inherit pkgs; };
+    deps = (import ./python-packages.nix) { inherit pkgs; };
 
     # Python environment containing all required packages
     pythonEnv = pkgs.python3.withPackages (_: deps);
