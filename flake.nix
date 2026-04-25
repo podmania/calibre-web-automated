@@ -23,18 +23,16 @@
     };
 
     # Load requirements.txt from the flake's root directory
-    # (CI will fetch and commit the combined requirements file)
     project = pyproject-nix.lib.project.loadRequirementsTxt { projectRoot = ./.; };
 
-    # Build Python environment with all packages from nixpkgs
-    pythonEnv = pkgs.python3.withPackages (project.renderers.withPackages { inherit (pkgs) python3; });
+    # Build Python environment – note the correct argument syntax
+    pythonEnv = pkgs.python3.withPackages (project.renderers.withPackages { python = pkgs.python3; });
 
-    # The application source (not installed, just copied)
+    # The application source (copied, not installed)
     app = pkgs.runCommand "cwa-source" { } ''
       mkdir -p $out
       cp -r ${src}/* $out/
     '';
-
   in {
     packages.${system}.calibre-web-automated = pkgs.dockerTools.buildLayeredImage {
       name = "calibre-web-automated";
