@@ -75,11 +75,11 @@ jobs:
           TAG="${{ steps.latest.outputs.tag }}"
           curl -L -o requirements.txt "https://raw.githubusercontent.com/crocodilestick/Calibre-Web-Automated/$TAG/requirements.txt"
           curl -L -o optional-requirements.txt "https://raw.githubusercontent.com/crocodilestick/Calibre-Web-Automated/$TAG/optional-requirements.txt"
-
+      
       - name: Regenerate deps.nix
         if: steps.check.outputs.update == 'true'
         run: |
-          pip2nix generate -r requirements.txt -r optional-requirements.txt -o deps.nix
+          pip2nix generate -r requirements.txt -r optional-requirements.txt > deps.nix
           git add deps.nix
 
       - name: Commit and push all changes
