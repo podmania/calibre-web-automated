@@ -18,32 +18,46 @@
       rev = cwaRev;
       sha256 = cwaSha256;
     };
-
-    cwa = pkgs.calibre-web.overridePythonAttrs (old: {
-      pname = "calibre-web-automated";
-      version = builtins.substring 1 (builtins.stringLength cwaRev) cwaRev;
-      inherit src;
-    });
-
   in {
     packages.${system}.calibre-web-automated = pkgs.dockerTools.buildLayeredImage {
       name = "calibre-web-automated";
       tag = "latest";
       contents = [
-        cwa
+        (pkgs.stdenv.mkDerivation {
+          name = "cwa-app";
+          __noChroot = true;
+          nativeBuildInputs = with pkgs; [ python3 cacert ];
+          buildCommand = ''
+            mkdir -p $out/app
+            cp -r ${src}/* $out/app/
+            python3 -m venv $out/venv
+            source $out/venv/bin/activate
+            # Install dependencies
+            pip install --no-cache-dir -r $out/app/requirements.txt
+            pip install --no-cache-dir -r $out/app/optional-requirements.txt
+
+            rm -rf $out/venv/lib/python*/site-packages/pip*
+            rm -rf $out/venv/lib/python*/site-packages/setuptools*
+          '';
+        })
         pkgs.calibre
         pkgs.kepubify
         pkgs.cacert
         pkgs.tzdata
+        pkgs.openldap    # runtime dependency for python-ldap
+        pkgs.cyrus_sasl  # runtime dependency for python-ldap
+        pkgs.libffi      # for cryptography wheel
+        pkgs.openssl     # for cryptography wheel
       ];
       config = {
         Env = [
           "PORT=8083"
           "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"
+          "PYTHONPATH=/cwa-app/app"
         ];
         ExposedPorts = { "8083/tcp" = {}; };
         Volumes = { "/config" = {}; "/books" = {}; };
-        Cmd = [ "${cwa}/bin/cps" ];
+        Cmd = [ "/cwa-app/venv/bin/python" "/cwa-app/app/cps.py" ];
         User = "1000";
         WorkingDir = "/config";
       };
