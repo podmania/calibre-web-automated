@@ -1,9 +1,12 @@
 {
-  description = "Calibre-Web-Automated distroless image";
+  description = "Calibre-Web-Automated distroless image (pyproject-nix)";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    pyproject-nix.url = "github:pyproject-nix/pyproject.nix";
+  };
 
-  outputs = { self, nixpkgs }: let
+  outputs = { self, nixpkgs, pyproject-nix, ... }: let
     system = builtins.currentSystem;
     pkgs = nixpkgs.legacyPackages.${system};
 
@@ -19,11 +22,18 @@
       sha256 = cwaSha256;
     };
 
-    # Generated dependencies (list of Python packages)
-    deps = (import ./python-packages.nix) { inherit pkgs; };
+    # Load requirements.txt from the flake's root directory
+    # (CI will fetch and commit the combined requirements file)
+    project = pyproject-nix.lib.project.loadRequirementsTxt { projectRoot = ./.; };
 
-    # Python environment containing all required packages
-    pythonEnv = pkgs.python3.withPackages (_: deps);
+    # Build Python environment with all packages from nixpkgs
+    pythonEnv = pkgs.python3.withPackages (project.renderers.withPackages { inherit (pkgs) python3; });
+
+    # The application source (not installed, just copied)
+    app = pkgs.runCommand "cwa-source" { } ''
+      mkdir -p $out
+      cp -r ${src}/* $out/
+    '';
 
   in {
     packages.${system}.calibre-web-automated = pkgs.dockerTools.buildLayeredImage {
@@ -31,7 +41,7 @@
       tag = "latest";
       contents = [
         pythonEnv
-        src
+        app
         pkgs.calibre
         pkgs.kepubify
         pkgs.cacert
@@ -41,10 +51,11 @@
         Env = [
           "PORT=8083"
           "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"
+          "PYTHONPATH=${app}"
         ];
         ExposedPorts = { "8083/tcp" = {}; };
         Volumes = { "/config" = {}; "/books" = {}; };
-        Cmd = [ "${pythonEnv}/bin/python" "${src}/cps.py" ];
+        Cmd = [ "${pythonEnv}/bin/python" "${app}/cps.py" ];
         User = "1000";
         WorkingDir = "/config";
       };
