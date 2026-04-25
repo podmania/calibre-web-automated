@@ -32,6 +32,11 @@
             cp -r ${src}/* $out/app/
             python3 -m venv $out/venv
             source $out/venv/bin/activate
+
+            export CPPFLAGS="-I${pkgs.openldap}/include -I${pkgs.cyrus_sasl}/include"
+            export LDFLAGS="-L${pkgs.openldap}/lib -L${pkgs.cyrus_sasl}/lib"
+            export LD_LIBRARY_PATH="${pkgs.openldap}/lib:${pkgs.cyrus_sasl}/lib
+
             # Install dependencies
             pip install --no-cache-dir -r $out/app/requirements.txt
             pip install --no-cache-dir -r $out/app/optional-requirements.txt
