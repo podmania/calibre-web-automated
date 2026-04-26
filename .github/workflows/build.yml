@@ -1,9 +1,9 @@
-name: Build and Push
+name: Build and Push Distroless Image
 
 on:
   push:
     branches: [main]
-    paths: ['flake.nix', 'flake.lock']
+    paths: ['package.nix', 'flake.nix']
   workflow_dispatch:
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
             system: aarch64-linux
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
@@ -35,22 +35,23 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.PAT_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build OCI image
         run: |
           nix build .#calibre-web-automated \
-            --impure \
-            --option sandbox false \
             --option system ${{ matrix.system }}
+
       - name: Load and tag
         run: |
           docker load < result
-          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --impure --option system ${{ matrix.system }})
+          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw)
           docker tag calibre-web-automated:latest ${{ env.REGISTRY }}/${{ github.repository }}:${VERSION}-${{ matrix.arch }}
           docker tag calibre-web-automated:latest ${{ env.REGISTRY }}/${{ github.repository }}:latest-${{ matrix.arch }}
+
       - name: Push
         run: |
-          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --impure --option system ${{ matrix.system }})
+          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw)
           docker push ${{ env.REGISTRY }}/${{ github.repository }}:${VERSION}-${{ matrix.arch }}
           docker push ${{ env.REGISTRY }}/${{ github.repository }}:latest-${{ matrix.arch }}
 
@@ -58,19 +59,15 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: cachix/install-nix-action@v31
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
+      - uses: actions/checkout@v4
       - uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.PAT_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Create multi-arch manifest
         run: |
-          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --impure)
+          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw)
           docker manifest create ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION \
             --amend ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION-amd64 \
             --amend ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION-arm64
