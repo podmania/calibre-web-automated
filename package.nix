@@ -12,7 +12,7 @@ python3Packages.buildPythonApplication rec {
   src = fetchFromGitHub {
     owner = "crocodilestick";
     repo = "Calibre-Web-Automated";
-    tag = version;
+    rev = "v${version}";
     hash = "sha256-4BvExsiSv9hyeLjWuRxR+xGW7Fz2eUEJo5piRgE/ang=";              # CI replaces this
   };
 
