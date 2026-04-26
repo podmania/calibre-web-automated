@@ -49,15 +49,15 @@ jobs:
           else
             echo "update=false" >> $GITHUB_OUTPUT
           fi
-
+  
       - name: Compute new hash
         if: steps.check.outputs.update == 'true'
         id: hash
         run: |
-          TAG="v${{ steps.latest.outputs.tag }}"
-          HASH=$(nix run nixpkgs#nix-prefetch-git -- https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "$TAG_WITH_V" | jq -r '.sha256')
+          TAG="${{ steps.latest.outputs.tag }}"
+          HASH=$(nix run nixpkgs#nix-prefetch-git -- --hash-type sha256 https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "v$TAG" | jq -r '.sha256')
           echo "hash=$HASH" >> $GITHUB_OUTPUT
-      
+          
       - name: Update package.nix
         if: steps.check.outputs.update == 'true'
         run: |
