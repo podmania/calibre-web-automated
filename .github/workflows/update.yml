@@ -5,8 +5,8 @@ on:
     - cron: '0 12 * * *'
   workflow_dispatch:
     inputs:
-      force_rebuild:
-        description: 'Force rebuild'
+      force_update:
+        description: 'Force update (ignore current version)'
         required: false
         default: false
         type: boolean
@@ -28,37 +28,44 @@ jobs:
         id: latest
         run: |
           LATEST=$(curl -s https://api.github.com/repos/crocodilestick/Calibre-Web-Automated/tags | jq -r '.[0].name')
-          echo "tag=$LATEST" >> $GITHUB_OUTPUT
+          echo "tag=${LATEST#v}" >> $GITHUB_OUTPUT   # strip leading 'v'
 
-      - name: Get current tag
+      - name: Get current version from package.nix
         id: current
         run: |
-          CURRENT=$(grep -oP 'cwaRev = "\K[^"]+' flake.nix | head -1)
-          echo "tag=$CURRENT" >> $GITHUB_OUTPUT
+          CURRENT=$(grep -oP 'version = "\K[^"]+' package.nix | head -1)
+          echo "version=$CURRENT" >> $GITHUB_OUTPUT
 
       - name: Determine if update needed
         id: check
         run: |
-          FORCE=${{ github.event.inputs.force_rebuild == 'true' }}
+          FORCE=${{ github.event.inputs.force_update == 'true' }}
           if [ "$FORCE" = "true" ]; then
             echo "update=true" >> $GITHUB_OUTPUT
             exit 0
           fi
-          if [ "${{ steps.latest.outputs.tag }}" != "${{ steps.current.outputs.tag }}" ]; then
+          if [ "${{ steps.latest.outputs.tag }}" != "${{ steps.current.outputs.version }}" ]; then
             echo "update=true" >> $GITHUB_OUTPUT
           else
             echo "update=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update flake.nix
+      - name: Compute new hash
+        if: steps.check.outputs.update == 'true'
+        id: hash
+        run: |
+          TAG="v${{ steps.latest.outputs.tag }}"
+          HASH=$(nix-prefetch-git https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "$TAG" | jq -r '.sha256')
+          echo "hash=$HASH" >> $GITHUB_OUTPUT
+
+      - name: Update package.nix
         if: steps.check.outputs.update == 'true'
         run: |
-          NEW_TAG="${{ steps.latest.outputs.tag }}"
-          HASH=$(nix run nixpkgs#nix-prefetch-git -- https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "$NEW_TAG" | jq -r '.sha256')
-          sed -i "s|cwaRev = \".*\"|cwaRev = \"$NEW_TAG\"|" flake.nix
-          sed -i "s|cwaSha256 = \".*\"|cwaSha256 = \"$HASH\"|" flake.nix
-          sed -i "s|calibreWebAutomatedVersion = \".*\"|calibreWebAutomatedVersion = \"$NEW_TAG\"|" flake.nix
+          NEW_VER="${{ steps.latest.outputs.tag }}"
+          NEW_HASH="${{ steps.hash.outputs.hash }}"
+          sed -i "s|version = \".*\"|version = \"$NEW_VER\"|" package.nix
+          sed -i "s|hash = \".*\"|hash = \"$NEW_HASH\"|" package.nix
           git config user.name "github-actions[bot]"
-          git add flake.nix
-          git commit -m "chore: update to $NEW_TAG"
+          git add package.nix
+          git commit -m "chore: update calibre-web-automated to v$NEW_VER"
           git push
