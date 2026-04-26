@@ -15,6 +15,8 @@ python3Packages.buildPythonApplication rec {
     rev = "v${version}";
     hash = "sha256-4BvExsiSv9hyeLjWuRxR+xGW7Fz2eUEJo5piRgE/ang=";              # CI replaces this
   };
+  
+  packages = [ "cps" ];
 
   dependencies = with python3Packages; [
     apscheduler
