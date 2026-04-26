@@ -40,18 +40,19 @@ jobs:
       - name: Build OCI image
         run: |
           nix build .#calibre-web-automated \
+            --impure \
             --option system ${{ matrix.system }}
 
       - name: Load and tag
         run: |
           docker load < result
-          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw)
+          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --impure)
           docker tag calibre-web-automated:latest ${{ env.REGISTRY }}/${{ github.repository }}:${VERSION}-${{ matrix.arch }}
           docker tag calibre-web-automated:latest ${{ env.REGISTRY }}/${{ github.repository }}:latest-${{ matrix.arch }}
 
       - name: Push
         run: |
-          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw)
+          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --impure)
           docker push ${{ env.REGISTRY }}/${{ github.repository }}:${VERSION}-${{ matrix.arch }}
           docker push ${{ env.REGISTRY }}/${{ github.repository }}:latest-${{ matrix.arch }}
 
@@ -67,7 +68,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Create multi-arch manifest
         run: |
-          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw)
+          VERSION=$(nix eval .#calibreWebAutomatedVersion --raw --impure)
           docker manifest create ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION \
             --amend ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION-amd64 \
             --amend ${{ env.REGISTRY }}/${{ github.repository }}:$VERSION-arm64
