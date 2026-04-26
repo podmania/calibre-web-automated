@@ -13,7 +13,7 @@ python3Packages.buildPythonApplication rec {
     owner = "crocodilestick";
     repo = "Calibre-Web-Automated";
     tag = version;
-    hash = "";              # CI replaces this
+    hash = "0iz3qfbnd2r1b7a25k2vxj13mmw17lkwqczh3xyb1l9l737can63";              # CI replaces this
   };
 
   dependencies = with python3Packages; [
