@@ -17,6 +17,7 @@ python3Packages.buildPythonApplication rec {
   };
   
   packages = [ "cps" ];
+  packageDir = "cps";
 
   dependencies = with python3Packages; [
     apscheduler
