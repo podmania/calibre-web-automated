@@ -54,10 +54,10 @@ jobs:
         if: steps.check.outputs.update == 'true'
         id: hash
         run: |
-          TAG="${{ steps.latest.outputs.tag }}"
-          BASE32_HASH=$(nix run nixpkgs#nix-prefetch-git -- https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "v$TAG" | jq -r '.sha256')
-          SRI_HASH=$(nix hash to-sri --type sha256 "$BASE32_HASH")
-          echo "hash=$SRI_HASH" >> $GITHUB_OUTPUT
+          TAG="${{ steps.latest.outputs.tag }}"   # e.g., "4.0.6"
+          HASH=$(nix run nixpkgs#nix-prefetch-git -- https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "v$TAG" | jq -r '.sha256')
+          SRI=$(nix hash to-sri --type sha256 "$HASH")
+          echo "hash=$SRI" >> $GITHUB_OUTPUT
     
       - name: Update package.nix
         if: steps.check.outputs.update == 'true'
