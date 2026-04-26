@@ -55,9 +55,9 @@ jobs:
         id: hash
         run: |
           TAG="v${{ steps.latest.outputs.tag }}"
-          HASH=$(nix-prefetch-git https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "$TAG" | jq -r '.sha256')
+          HASH=$(nix run nixpkgs#nix-prefetch-git -- https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "$TAG_WITH_V" | jq -r '.sha256')
           echo "hash=$HASH" >> $GITHUB_OUTPUT
-
+      
       - name: Update package.nix
         if: steps.check.outputs.update == 'true'
         run: |
