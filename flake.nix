@@ -1,7 +1,7 @@
 {
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   outputs = { self, nixpkgs }: let
-    system = "x86_64-linux";
+    system = builtins.currentSystem;
     pkgs = import nixpkgs {
       inherit system;
       overlays = [ (self: super: { calibre-web-automated = super.callPackage ./package.nix { }; }) ];
