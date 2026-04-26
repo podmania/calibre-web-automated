@@ -56,9 +56,9 @@ jobs:
         run: |
           TAG="${{ steps.latest.outputs.tag }}"
           BASE32_HASH=$(nix run nixpkgs#nix-prefetch-git -- https://github.com/crocodilestick/Calibre-Web-Automated.git --rev "v$TAG" | jq -r '.sha256')
-          SRI_HASH=$(nix hash convert "$BASE32_HASH")
+          SRI_HASH=$(nix hash to-sri --type sha256 "$BASE32_HASH")
           echo "hash=$SRI_HASH" >> $GITHUB_OUTPUT
-          
+    
       - name: Update package.nix
         if: steps.check.outputs.update == 'true'
         run: |
